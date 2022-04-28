@@ -1,4 +1,4 @@
-#LZMA Markup
+# LZMA Markup
 
 **This project created to visualize LZMA compression.**
 
