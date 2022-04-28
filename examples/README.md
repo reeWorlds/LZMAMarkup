@@ -1,5 +1,4 @@
 ###Settings.txt file description:
-
 - **renderType**: could be "general" or "hexadecimal". First option is better for text files, second is fixed-width and better for executables. "general" renders visible characters as usual, but uses codes like "\176" or "\n" for other characters. "hexadecimal" renders each character as two hex digits.
 
 - **renderMode**: could be "blocks" or "entropy". First option uses different background colors for different LZMA packets. Second uses background color to show how many bits were used to encode character.
