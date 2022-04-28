@@ -38,4 +38,4 @@ longRepeat3ColorSecond= #CB4335
 textColor= black
 
 entropySaturation= 80
-entropyNumLevels= 70
+entropyLightness= 70
