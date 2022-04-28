@@ -18,6 +18,6 @@ Colors, render mode and other parameters taken to settings file, so you dont hav
 - .\examples\REAMDE.md contains description of file with parameters (Settings.txt)
 - In case you want to change font, you may want to use .\code\ChractersSizeGenerator\main.cpp or corresponding executable
 
-![Example 1. LZMA packet blocks](examples\test_default\screen.png)
+![Example 1. LZMA packet blocks]("examples/test_default/screen.png")
 
-![Example 2. Entropy heatmap](examples\book1_entropy\screen.png)
+![Example 2. Entropy heatmap]("examples/book1_entropy/screen.png")
