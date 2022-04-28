@@ -1,0 +1,41 @@
+renderType= general
+renderMode= entropy
+
+textFont= "24px_Arial_Bold"
+
+maxCharactersPerLine= 100
+maxLinesPerPage= 1000
+
+ignoreEndLine= 0
+
+
+horisontalBlockShiftLeft= 10
+horisontalBlockShiftRight= 10
+
+verticalBlockShiftUp= 2
+verticalBlockShiftDown= 2
+
+
+literalColorFirst= #EAECEE
+literalColorSecond= #D5D8DC
+
+matchColorFirst= #ABEBC6
+matchColorSecond= #A3E4D7
+
+shortRepeatColorFirst= #93D8EF
+shortRepeatColorSecond= #93D8EF
+
+longRepeat0ColorFirst= #B1C2F8
+longRepeat0ColorSecond= #B1C2F8
+
+longRepeat1ColorFirst= #F5B7B1
+longRepeat1ColorSecond= #F5B7B1
+longRepeat2ColorFirst= #D98880
+longRepeat2ColorSecond= #D98880
+longRepeat3ColorFirst= #CB4335
+longRepeat3ColorSecond= #CB4335
+
+textColor= black
+
+entropySaturation= 80
+entropyNumLevels= 70
