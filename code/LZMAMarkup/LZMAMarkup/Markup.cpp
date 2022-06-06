@@ -17,7 +17,7 @@ namespace markup
 
 	int ignoreEndLine; // if != 0, line spliting ignores '\n'
 
-	int horisontalBlockShiftLeft; // pixels multiplied by 10, e. g 20
+	int horisontalBlockShiftLeft; // pixels multiplied by 10, e. g. 20
 	int horisontalBlockShiftRight; // pixels multiplied by 10, e. g. 20
 
 	int verticalBlockShiftUp; // pixels, e. g. 2
@@ -249,6 +249,85 @@ void decompressAndEntropyMarkText(string path, uint& textLen, uchar*& text, ucha
 	fclose(in);
 }
 
+void combineMarksCompare(uchar* marks1, uchar* marks2, uchar*& marks, uint textLen)
+{
+	marks = new uchar[textLen];
+
+	marks[0] = 0;
+	for (uint i = 1; i < textLen; i++)
+	{
+		if (marks1[i] != marks1[i - 1] || marks2[i] != marks2[i - 1])
+		{
+			marks[i] = marks[i - 1] ^ 1;
+		}
+		else
+		{
+			marks[i] = marks[i - 1];
+		}
+	}
+}
+
+void combineEntropyCompare(float* ent1, float* ent2, uchar*& colorTypes, uint textLen)
+{
+	colorTypes = new uchar[textLen];
+
+	for (uint i = 0; i < textLen; i++)
+	{
+		colorTypes[i] = scaleEntropyToHue2(ent1[i] - ent2[i]);
+	}
+}
+
+void decompressAndCompareMarkText(string path1, string path2, uint& textLen, uchar*& text, 
+	uchar*& marks, uchar*& colorTypes)
+{
+	uint textLen1, textLen2;
+	uchar* text1, * text2;
+	uchar* marks1, * marks2;
+	float* ent1, * ent2;
+
+	FILE* in1 = fopen(path1.c_str(), "rb");
+	FILE* in2 = fopen(path2.c_str(), "rb");
+
+	if (in1 == NULL || in2 == NULL)
+	{
+		exit(4);
+	}
+
+	LZMA* lzma1 = new LZMA(in1);
+	lzma1->compareDecodeText(textLen1, text1, marks1, ent1);
+	delete lzma1;
+	fclose(in1);
+
+	LZMA* lzma2 = new LZMA(in2);
+	lzma2->compareDecodeText(textLen2, text2, marks2, ent2);
+	delete lzma2;
+	fclose(in2);
+
+	if (textLen1 != textLen2)
+	{
+		exit(-2);
+	}
+	if (memcmp(text1, text2, textLen1) != 0)
+	{
+		exit(2);
+	}
+
+	textLen = textLen1;
+	text = text1;
+
+	delete[] text2;
+
+	combineMarksCompare(marks1, marks2, marks, textLen);
+	
+	delete[] marks1;
+	delete[] marks2;
+
+	combineEntropyCompare(ent1, ent2, colorTypes, textLen);
+
+	delete[] ent1;
+	delete[] ent2;
+}
+
 #define start first
 #define end second
 
@@ -350,33 +429,14 @@ void writeHTMLPage(string path, int pageWidth, int pageHeight, int pageNumber, i
 	}
 	out << "\n";
 
-	out << "<div style=\"font-size:125%; color:" <<  markup::textColor << "\">\n";
-	out << "<div style=\"background-color:" << markup::literalColor[0] << "; \">Literal</div>\n";
-	out << "<div style=\"background-color:" << markup::literalColor[1] << "; \">Literal</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::matchColor[0] << "; \">Match</div>\n";
-	out << "<div style=\"background-color:" << markup::matchColor[1] << "; \">Match</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::shortRepeatColor[0] << "; \">ShortRepeat</div>\n";
-	out << "<div style=\"background-color:" << markup::shortRepeatColor[1] << "; \">ShortRepeat</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat0Color[0] << "; \">longRepeat0</div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat0Color[1] << "; \">longRepeat0</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat1Color[0] << "; \">longRepeat1</div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat1Color[1] << "; \">longRepeat1</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat2Color[0] << "; \">longRepeat2</div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat2Color[1] << "; \">longRepeat2</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat3Color[0] << "; \">longRepeat3</div>\n";
-	out << "<div style=\"background-color:" << markup::longRepeat3Color[1] << "; \">longRepeat3</div>\n";
-	out << "<div style=\"font-size:25%;\"><br></div>\n";
-	out << "<\div>";
+	out << "<canvas id = \"canvas2\" width = \"1300px\" height = \"150px\"></canvas>\n\n";
+	out << "<script src = \"script_2.js\"></script>\n";
+	out << "<script>\n";
+	out << "\tdraw2();\n";
+	out << "</script>\n\n";
 	
 	out << "<canvas id = \"canvas\" width = \"" << pageWidth << "px\" height = \""
 		<< pageHeight << "px\"></canvas>\n\n";
-
 	out << "<script src = \"script" << pageNumber << ".js\"></script>\n";
 	out << "<script>\n";
 	out << "\tdraw();\n";
@@ -395,6 +455,76 @@ string splitDigit(int n)
 	res += char((n % 10) + '0');
 
 	return res;
+}
+
+void writeDraw2Script(string path)
+{
+	using namespace markup;
+
+	ofstream out(path);
+
+	out << "function draw2()\n";
+	out << "{\n";
+	out << "\tlet canvas = document.getElementById(\"canvas2\");\n";
+	out << "\tlet ctx = canvas.getContext(\"2d\");\n";
+	out << "\tctx.font = \"34px Arial Bold\";\n\n";
+
+	out << "\tfunction ft(s, x, y) {ctx.fillText(s, x, y);}\n";
+	out << "\tfunction fr(x, y, w, h) {ctx.fillRect(x, y, w, h);}\n\n";
+	out << "\tfunction fs(c) {ctx.fillStyle = c;}\n\n";
+
+	out << "\tfs(\"" << literalColor[0] << "\");\n";
+	out << "\tfr(0, 0, 200, 50);\n";
+	out << "\tfs(\"" << literalColor[1] << "\");\n";
+	out << "\tfr(200, 0, 200, 50);\n";
+
+	out << "\tfs(\"" << matchColor[0] << "\");\n";
+	out << "\tfr(450, 0, 200, 50);\n";
+	out << "\tfs(\"" << matchColor[1] << "\");\n";
+	out << "\tfr(650, 00, 200, 50);\n";
+
+	out << "\tfs(\"" << shortRepeatColor[0] << "\");\n";
+	out << "\tfr(0, 50, 200, 50);\n";
+	out << "\tfs(\"" << shortRepeatColor[1] << "\");\n";
+	out << "\tfr(200, 50, 200, 50);\n";
+
+	out << "\tfs(\"" << longRepeat0Color[0] << "\");\n";
+	out << "\tfr(450, 50, 200, 50);\n";
+	out << "\tfs(\"" << longRepeat0Color[1] << "\");\n";
+	out << "\tfr(650, 50, 200, 50);\n";
+
+	out << "\tfs(\"" << longRepeat1Color[0] << "\");\n";
+	out << "\tfr(0, 100, 200, 50);\n";
+	out << "\tfs(\"" << longRepeat1Color[1] << "\");\n";
+	out << "\tfr(200, 100, 200, 50);\n";
+
+	out << "\tfs(\"" << longRepeat2Color[0] << "\");\n";
+	out << "\tfr(450, 100, 200, 50);\n";
+	out << "\tfs(\"" << longRepeat2Color[1] << "\");\n";
+	out << "\tfr(650, 100, 200, 50);\n";
+
+	out << "\tfs(\"" << longRepeat3Color[0] << "\");\n";
+	out << "\tfr(900, 100, 200, 50);\n";
+	out << "\tfs(\"" << longRepeat3Color[1] << "\");\n";
+	out << "\tfr(1100, 100, 200, 50);\n";
+
+	out << "\tfs(\"" << textColor << "\");\n";
+	out << "\tft(\"Literal\",10,35)\n";
+	out << "\tft(\"Literal\",210,35)\n";
+	out << "\tft(\"Match\",460,35)\n";
+	out << "\tft(\"Match\",660,35)\n";
+	out << "\tft(\"ShortRepeat\",10,85)\n";
+	out << "\tft(\"ShortRepeat\",210,85)\n";
+	out << "\tft(\"LongRepeat0\",460,85)\n";
+	out << "\tft(\"LongRepeat0\",660,85)\n";
+	out << "\tft(\"LongRepeat1\",10,135)\n";
+	out << "\tft(\"LongRepeat1\",210,135)\n";
+	out << "\tft(\"LongRepeat2\",460,135)\n";
+	out << "\tft(\"LongRepeat2\",660,135)\n";
+	out << "\tft(\"LongRepeat3\",910,135)\n";
+	out << "\tft(\"LongRepeat3\",1110,135)\n";
+
+	out << "}";
 }
 
 void writeDrawScript(string path, vector <pair<int, int> >& page, uchar* text, uchar* marks)
@@ -511,6 +641,8 @@ void createHTMLPages(string folderPath, uint textLen, uchar* text, uchar* marks)
 	vector <vector <pair<int, int> > > pages;
 
 	separateTextIntoLines(textLen, text, pages);
+
+	writeDraw2Script(folderPath + "script_2.js");
 
 	// process each page separately 
 	for (int pageI = 1; pageI <= pages.size(); pageI++)
@@ -633,6 +765,8 @@ void createHTMLPages16(string folderPath, uint textLen, uchar* text, uchar* mark
 	vector <vector <pair<int, int> > > pages;
 
 	separateTextIntoLines(textLen, text, pages);
+
+	writeDraw2Script(folderPath + "script_2.js");
 
 	// process each page separately 
 	for (int pageI = 1; pageI <= pages.size(); pageI++)
@@ -953,6 +1087,94 @@ void createHTMLPagesEntropy16(string folderPath, uint textLen, uchar* text, ucha
 	separateTextIntoLines(textLen, text, pages);
 
 	writeDraw2ScriptEntropy(folderPath + "script_2.js");
+
+	// process each page separately 
+	for (int pageI = 1; pageI <= pages.size(); pageI++)
+	{
+		vector<pair<int, int> >& page = pages[pageI - 1];
+
+		int pageWidth = 0, pageHeight = 0;
+		findWidthHeight16(page, text, pageWidth, pageHeight);
+
+		writeHTMLPageEntropy(folderPath + "page" + to_string(pageI) + ".html", pageWidth, pageHeight,
+			pageI, pages.size());
+
+		writeDrawScriptEntropy16(folderPath + "script" + to_string(pageI) + ".js", page, text, colorTypes);
+	}
+}
+
+void writeDraw2ScriptCompare(string path)
+{
+	using namespace markup;
+
+	ofstream out(path);
+
+	out << "function draw2()\n";
+	out << "{\n";
+	out << "\tlet canvas = document.getElementById(\"canvas2\");\n";
+	out << "\tlet ctx = canvas.getContext(\"2d\");\n";
+	out << "\tctx.font = \"34px Arial Bold\";\n\n";
+
+	out << "\tfunction ft(s, x, y) {ctx.fillText(s, x, y);}\n";
+	out << "\tfunction fr(x, y, w, h) {ctx.fillRect(x, y, w, h);}\n\n";
+	out << "\tfunction fs(c) {ctx.fillStyle = c;}\n\n";
+
+	int i = 0;
+	for (double e = -9.99999; e <= 9.99999; e += 20.0 / 1200)
+	{
+		int h = scaleEntropyToHue2(e);
+
+		out << "\tfs(\"hsl(" << h << "," << entropySaturation << "%, " << entropyLightness << "%)\");\n";
+		out << "\tfr(" << i << ",0,2,50);\n";
+		i++;
+	}
+	i = 0;
+	out << "\tfs(\"black\");\n";
+	for (double e = -9.99999; e <= 10.0001; e += 20.0 / 1200)
+	{
+		if (i % 60 == 0)
+		{
+			int bits = i / 60 - 10;
+			out << "\tft(\"" << bits << "\"," << i << ",30);\n";
+		}
+		i++;
+	}
+
+	out << "}";
+}
+
+void createHTMLPagesCompare(string folderPath, uint textLen, uchar* text, uchar* marks, uchar* colorTypes)
+{
+	// Full text consist of pages, page consist of lines, line consist of characters text[line.start : line.end]
+	vector <vector <pair<int, int> > > pages;
+
+	separateTextIntoLines(textLen, text, pages);
+
+	writeDraw2ScriptCompare(folderPath + "script_2.js"); // todo
+
+	// process each page separately
+	for (int pageI = 1; pageI <= pages.size(); pageI++)
+	{
+		vector<pair<int, int> >& page = pages[pageI - 1];
+
+		int pageWidth = 0, pageHeight = 0;
+		findWidthHeight(page, text, marks, pageWidth, pageHeight);
+
+		writeHTMLPageEntropy(folderPath + "page" + to_string(pageI) + ".html", pageWidth, pageHeight,
+			pageI, pages.size());
+
+		writeDrawScriptEntropy(folderPath + "script" + to_string(pageI) + ".js", page, text, marks, colorTypes);
+	}
+}
+
+void createHTMLPagesCompare16(string folderPath, uint textLen, uchar* text, uchar* colorTypes)
+{
+	// Full text consist of pages, page consist of lines, line consist of characters text[line.start : line.end]
+	vector <vector <pair<int, int> > > pages;
+
+	separateTextIntoLines(textLen, text, pages);
+
+	writeDraw2ScriptCompare(folderPath + "script_2.js");
 
 	// process each page separately 
 	for (int pageI = 1; pageI <= pages.size(); pageI++)

@@ -1,10 +1,10 @@
-renderType= hexadecimal
-renderMode= blocks
+renderType= general
+renderMode= entropy
 
 textFont= "24px_Arial_Bold"
 
 maxCharactersPerLine= 100
-maxLinesPerPage= 1000
+maxLinesPerPage= 2000
 
 ignoreEndLine= 0
 

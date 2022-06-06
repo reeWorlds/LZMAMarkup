@@ -2,7 +2,7 @@
 
 **This project created to visualize LZMA compression.**
 
-It has different render modes to emphasize how compressed files are splitted in LZMA packets as well as how entropy heatmap looks like.
+It has different render modes to emphasize how compressed files are splitted in LZMA packets as well as how entropy heatmap looks like. LZMAMarkup also can compare two compressions of the same file.
 
 Not only text files but executables or any other files could be visualized as all characters forced to have text representation. Hexadecimal mode is also supported.
 

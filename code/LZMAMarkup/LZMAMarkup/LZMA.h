@@ -43,6 +43,8 @@ enum mark : uchar
 
 int scaleEntropyToHue(double e);
 
+int scaleEntropyToHue2(float e);
+
 class LZMA
 {
 	class RC
@@ -143,4 +145,6 @@ public:
 	void decodeText(uint& textLen, uchar*& text, uchar*& marks);
 
 	void entropydecodeText(uint& textLen, uchar*& text, uchar*& marks, uchar*& colorTypes);
+
+	void compareDecodeText(uint& textLen, uchar*& text, uchar*& marks, float*& ent);
 };

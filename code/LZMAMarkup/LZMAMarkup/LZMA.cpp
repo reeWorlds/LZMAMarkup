@@ -22,6 +22,41 @@ int scaleEntropyToHue(double e)
 	}
 }
 
+int scaleEntropyToHue2(float e)
+{
+	int mult = e < 1e-10 ? -1 : 1;
+	int val;
+
+	e = abs(e);
+
+	if (e >= 10.0)
+	{
+		val = 125;
+	}
+	else if (e >= 5.0)
+	{
+		val = 95 + 5.9999 * (e - 5.0);
+	}
+	else if (e > 3.0)
+	{
+		val = 75 + 10 * (e - 3.0);
+	}
+	else if (e > 2.0)
+	{
+		val = 60 + 16 * (e - 2.0);
+	}
+	else if (e > 1.0)
+	{
+		val = 35 + 25 * (e - 1.0);
+	}
+	else
+	{
+		val = 35 * e;
+	}
+
+	return 125 + mult * val;
+}
+
 LZMA::RC::RC(FILE* _in)
 {
 	in = _in;
@@ -625,7 +660,7 @@ void LZMA::entropydecodeText(uint& textLen, uchar*& text, uchar*& marks, uchar*&
 							break;
 						}
 					}
-				}
+				} 
 				else
 				{
 					symbol = 1;
@@ -766,6 +801,296 @@ void LZMA::entropydecodeText(uint& textLen, uchar*& text, uchar*& marks, uchar*&
 			{
 				symbol = dict[pos];
 				symStore2(symbol);
+
+				if (++pos == dictSize)
+				{
+					pos = 0;
+				}
+			}
+		}
+	}
+
+	delete[] dict;
+}
+
+#define symStore3(symbol) {	text[filePos] = dict[dictPos] = symbol; \
+							ent[filePos] = usedBits; \
+							marks[filePos] = markId; \
+							if(++dictPos == dictSize) {dictPos=0;} \
+							filePos++; }
+
+void LZMA::compareDecodeText(uint& textLen, uchar*& text, uchar*& marks, float*& ent)
+{
+	initCounters();
+
+	ull fLen;
+
+	// read lc/lp/pb
+	if (true)
+	{
+		uchar token;
+		fread(&token, sizeof(uchar), 1, f);
+
+		lc = token % 9;
+		lp = token / 9 % 5;
+		pb = token / 9 / 5;
+	}
+
+	// read dict size
+	fread(&dictSize, sizeof(dictSize), 1, f);
+	// read decompressed file length
+	fread(&fLen, sizeof(fLen), 1, f);
+	rc.get(); // zero byte
+
+	textLen = fLen;
+	text = new uchar[textLen];
+	marks = new uchar[textLen];
+	ent = new float[textLen];
+
+	dict = new uchar[dictSize];
+
+	rc.rc_Init();
+
+	uint i;
+	uint state = 0, rep0 = 1, rep1 = 1, rep2 = 1, rep3 = 1;
+	uint dictPos = 0;
+	uint pbMask = (1 << pb) - 1, lpMask = (1 << lp) - 1, lc8 = 8 - lc;
+	uint id, val, symbol = 0, iLen, dist, pos, len, cps;
+	short* clen;
+
+	// create reverse table for 5-bit numbers
+	for (i = 0; i < 32; i++)
+	{
+		rbit5[i] = ((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16 + 3;
+	}
+
+	uchar markId;
+	uchar literalFlag = 0, matchFlag = 0, shortRepeatFlag = 0, longRepeat0Flag = 0,
+		longRepeat1Flag = 0, longRepeat2Flag = 0, longRepeat3Flag = 0;
+
+	double usedBits;
+
+	for (ull filePos = 0; filePos < fLen; state = statemap[state][id])
+	{
+		usedBits = 0.0;
+		uint posState = filePos & pbMask;
+		uint pSymbol = uchar(symbol);
+
+		if (entropyDecode_bit(c_IsMatch[state][posState], usedBits) == 0)
+		{
+			id = id_lit;
+			markId = mark_literal1 + literalFlag;
+			literalFlag ^= 1;
+		}
+		else if (entropyDecode_bit(c_IsRep[state], usedBits) == 0)
+		{
+			id = id_match;
+			markId = mark_match1 + matchFlag;
+			matchFlag ^= 1;
+		}
+		else if (entropyDecode_bit(c_IsRepG0[state], usedBits) == 0)
+		{
+			if (entropyDecode_bit(c_IsRep0Long[state][posState], usedBits) == 0)
+			{
+				id = id_litr0;
+				markId = mark_shortRepeat1 + shortRepeatFlag;
+				shortRepeatFlag ^= 1;
+			}
+			else
+			{
+				id = id_r0;
+				markId = mark_longRepeat01 + longRepeat0Flag;
+				longRepeat0Flag ^= 1;
+			}
+		}
+		else
+		{
+			if (entropyDecode_bit(c_IsRepG1[state], usedBits) == 0)
+			{
+				id = id_r1;
+				markId = mark_longRepeat11 + longRepeat1Flag;
+				longRepeat1Flag ^= 1;
+			}
+			else
+			{
+				if (entropyDecode_bit(c_IsRepG2[state], usedBits))
+				{
+					id = id_r3;
+					markId = mark_longRepeat21 + longRepeat2Flag;
+					longRepeat2Flag ^= 1;
+				}
+				else
+				{
+					id = id_r2;
+					markId = mark_longRepeat31 + longRepeat3Flag;
+					longRepeat3Flag ^= 1;
+				}
+			}
+		}
+
+		if (id == id_lit || id == id_litr0)
+		{
+			if (id == id_litr0)
+			{
+				symbol = dict[rep0Pos()];
+			}
+			else
+			{
+				short(&c)[3][256] = c_Literal[filePos & lpMask][pSymbol >> lc8];
+
+				if (state >= kNumLitStates)
+				{
+					uint matchbyte = 0x100 + dict[rep0Pos()];
+
+					for (symbol = 1; symbol < 0x100; )
+					{
+						uint mbprefix = (matchbyte <<= 1) >> 8;
+						symbol += symbol + entropyDecode_bit(c[1 + (mbprefix & 1)][symbol], usedBits);
+
+						if (mbprefix != symbol)
+						{
+							break;
+						}
+					}
+				}
+				else
+				{
+					symbol = 1;
+				}
+
+				for (; symbol < 0x100;)
+				{
+					symbol += symbol + entropyDecode_bit(c[0][symbol], usedBits);
+				}
+			}
+
+			symStore3(symbol);
+		}
+		else
+		{
+			uint fRep = (id != id_match);
+
+			if (fRep)
+			{
+				if (id != id_r0)
+				{
+					dist = rep1;
+
+					if (id != id_r1)
+					{
+						dist = rep2;
+						if (id == id_r3)
+						{
+							dist = rep3;
+							rep3 = rep2;
+						}
+						rep2 = rep1;
+					}
+
+					rep1 = rep0;
+					rep0 = dist;
+				}
+			}
+
+			if (entropyDecode_bit(c_LenChoice[fRep], usedBits) == 0)
+			{
+				iLen = 0;
+			}
+			else
+			{
+				if (entropyDecode_bit(c_LenChoice2[fRep], usedBits) == 0)
+				{
+					iLen = 1;
+				}
+				else
+				{
+					iLen = 2;
+				}
+			}
+
+			uint limit, offset;
+			if (iLen == 0)
+			{
+				clen = &c_LenLow[fRep][posState][0];
+				offset = 0; limit = (1 << kLenNumLowBits);
+			}
+			else
+			{
+				if (iLen == 1)
+				{
+					clen = &c_LenMid[fRep][posState][0];
+					offset = kLenNumLowSymbols; limit = (1 << kLenNumMidBits);
+				}
+				else
+				{
+					clen = &c_LenHigh[fRep][0];
+					offset = kLenNumLowSymbols + kLenNumMidSymbols; limit = (1 << kLenNumHighBits);
+				}
+			}
+
+			for (len = 1; len < limit;)
+			{
+				len += len + entropyDecode_bit(clen[len], usedBits);
+			}
+			len -= limit;
+			len += offset;
+
+			if (fRep == 0)
+			{
+				short(&cpos)[1 << kNumPosSlotBits] = c_PosSlot[len < kNumLenToPosStates ? len : kNumLenToPosStates - 1];
+
+				for (dist = 1; dist < 64;)
+				{
+					dist += dist + entropyDecode_bit(cpos[dist], usedBits);
+				}
+				dist -= 64;
+
+				if (dist >= kStartPosModelIndex)
+				{
+					uint posSlot = dist;
+					int numDirectBits = (dist >> 1) - 1;
+					dist = (2 | (dist & 1));
+
+					if (posSlot < kEndPosModelIndex)
+					{
+						dist <<= numDirectBits;
+						uint limit = 1 << numDirectBits;
+						for (i = 1; i < limit;)
+						{
+							i += i + entropyDecode_bit(c_SpecPos[dist - posSlot - 1 + i], usedBits);
+						}
+						dist += rbit5[(i - limit) << (5 - numDirectBits)];
+					}
+					else
+					{
+						numDirectBits -= kNumAlignBits;
+						usedBits += numDirectBits;
+						(dist <<= numDirectBits) += rc.rc_Bits(numDirectBits);
+						for (i = 1; i < 16; )
+						{
+							i += i + entropyDecode_bit(c_Align[i], usedBits);
+						}
+						(dist <<= kNumAlignBits) += rbit5[(i - 16) << 1];
+
+						if (dist == 0xFFFFFFFFU)
+						{
+							break;
+						}
+					}
+				}
+
+				rep3 = rep2;
+				rep2 = rep1;
+				rep1 = rep0;
+				rep0 = dist + 1;
+			}
+
+			usedBits /= (len + kMatchMinLen);
+
+			for (pos = rep0Pos(), len += kMatchMinLen; len > 0; len--)
+			{
+				symbol = dict[pos];
+				symStore3(symbol);
 
 				if (++pos == dictSize)
 				{

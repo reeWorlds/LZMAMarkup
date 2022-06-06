@@ -20,5 +20,6 @@
 
 - **textColor**: e. g. "black".
 
-- **entropySaturation**, **entropyLightness**: HSV second and third parameters for "entropy" **renderMode**.
+- **entropySaturation**, **entropyLightness**: HSV second and third parameters for "entropy" **renderMode** or files comparison.
 ![](entropy.png)
+![](entropy2.png)

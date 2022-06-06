@@ -3,7 +3,7 @@ renderMode= blocks
 
 textFont= "24px_Arial_Bold"
 
-maxCharactersPerLine= 100
+maxCharactersPerLine= 63
 maxLinesPerPage= 1000
 
 ignoreEndLine= 0
@@ -38,4 +38,4 @@ longRepeat3ColorSecond= #CB4335
 textColor= black
 
 entropySaturation= 80
-entropyLightness= 70
+entropyNumLevels= 70
