@@ -27,7 +27,7 @@ int scaleEntropyToHue2(float e)
 	int mult = e < 1e-10 ? -1 : 1;
 	int val;
 
-	e = abs(e);
+	e = abs((double)e);
 
 	if (e >= 10.0)
 	{

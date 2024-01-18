@@ -5,11 +5,14 @@
 #include <iostream>
 #include <fstream>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <set>
 #include <tuple>
+#include <math.h>
 using namespace std;
 
 using uchar = unsigned char;

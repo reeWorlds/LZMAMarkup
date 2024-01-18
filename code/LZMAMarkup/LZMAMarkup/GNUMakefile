@@ -1,0 +1,23 @@
+# LZMAMarkup Makefile
+# usage: $ make -f GNUMakefile
+#
+CXX ?= g++
+CXXFLAGS = -O2 -Wall
+LD = $(CXX)
+
+PROG = LZMAMarkup
+SRCS = LZMA.cpp Markup.cpp main.cpp
+OBJS = $(SRCS:%.cpp=%.o)
+
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+all: $(PROG)
+
+$(PROG): $(OBJS)
+	$(LD) -o $@ $^
+
+clean:
+	@rm -f $(PROG) $(OBJS)
+
